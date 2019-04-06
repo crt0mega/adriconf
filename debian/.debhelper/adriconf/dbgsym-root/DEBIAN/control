@@ -1,0 +1,12 @@
+Package: adriconf-dbgsym
+Source: adriconf
+Version: 1.4-1
+Auto-Built-Package: debug-symbols
+Architecture: amd64
+Maintainer: crt0mega <crt0mega@c-r-t.tk>
+Installed-Size: 1356
+Depends: adriconf (= 1.4-1)
+Section: debug
+Priority: optional
+Description: debug symbols for adriconf
+Build-Ids: b897c0d80cf84fe719486bf03465a75e5ca485b9

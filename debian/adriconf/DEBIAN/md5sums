@@ -1,0 +1,7 @@
+f5efdd3d214a00df3cb7b72d04870e6b  usr/bin/adriconf
+36e385952c04a24fc7f051cf19ffb3b2  usr/share/doc/adriconf/README.Debian
+b0fa199798b594ce26ca3a26310cc1e9  usr/share/doc/adriconf/changelog.Debian.gz
+8704d4bfcd58e9019e8245928bac5579  usr/share/doc/adriconf/copyright
+b190d5b9f0de0df2442b7b6ce5431280  usr/share/locale/en/LC_MESSAGES/adriconf.mo
+751a4e84f501848d85a27c2994c6cfc3  usr/share/locale/hr/LC_MESSAGES/adriconf.mo
+9a37a604be1cfa960db92e18583c189f  usr/share/locale/pt_BR/LC_MESSAGES/adriconf.mo

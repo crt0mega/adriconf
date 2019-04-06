@@ -1,0 +1,19 @@
+Index: adriconf-1.4/CMakeLists.txt
+===================================================================
+--- adriconf-1.4.orig/CMakeLists.txt
++++ adriconf-1.4/CMakeLists.txt
+@@ -40,13 +40,7 @@ include_directories(${Boost_INCLUDE_DIRS
+ link_directories(${Boost_LIBRARY_DIRS})
+ 
+ # LIBXML
+-pkg_check_modules(LibXML++ libxml++-3.0)
+-if(NOT LibXML++_FOUND)
+-    pkg_check_modules(LibXML++2 REQUIRED libxml++-2.6)
+-    set(LibXML++_INCLUDE_DIRS ${LibXML++2_INCLUDE_DIRS})
+-    set(LibXML++_LIBRARY_DIRS ${LibXML++2_LIBRARY_DIRS})
+-    set(LibXML++_LIBRARIES ${LibXML++2_LIBRARIES})
+-endif()
++pkg_check_modules(LibXML++ libxml++-2.6)
+ include_directories(${LibXML++_INCLUDE_DIRS})
+ link_directories(${LibXML++_LIBRARY_DIRS})
+ 

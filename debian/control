@@ -1,0 +1,18 @@
+Source: adriconf
+Section: x11
+Priority: optional
+Maintainer: crt0mega <crt0mega@c-r-t.tk>
+Build-Depends: cmake, cmake-extras, debhelper (>=11~), pkgconf, libboost-locale-dev, libgl1-mesa-dev, libgtest-dev, libgtkmm-3.0-dev, libxml++2.6-dev
+Standards-Version: 4.1.4
+Homepage: https://github.com/crt0mega/adriconf
+
+Package: adriconf
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Advanced DRI Configurator
+ adriconf (Advanced DRI CONFigurator) is a GUI tool
+ used to configure open source graphics drivers.
+ . 
+ It works by setting options and writing them to
+ the standard drirc file used by the Mesa drivers.
