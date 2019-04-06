@@ -2,7 +2,7 @@ Source: adriconf
 Section: x11
 Priority: optional
 Maintainer: crt0mega <crt0mega@c-r-t.tk>
-Build-Depends: cmake, cmake-extras, debhelper (>=11~), pkgconf, libboost-locale-dev, libgl1-mesa-dev, libgtest-dev, libgtkmm-3.0-dev, libxml++2.6-dev
+Build-Depends: cmake, cmake-extras, debhelper (>=11~), pkg-config, libboost-locale-dev, libgl1-mesa-dev, libgtest-dev, libgtkmm-3.0-dev, libxml++2.6-dev, libpci-dev
 Standards-Version: 4.1.4
 Homepage: https://github.com/crt0mega/adriconf
 
