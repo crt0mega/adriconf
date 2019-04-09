@@ -1,0 +1,14 @@
+Add xdg-desktop-entry
+Index: adriconf/adriconf.desktop
+===================================================================
+--- /dev/null
++++ adriconf/adriconf.desktop
+@@ -0,0 +1,8 @@
++[Desktop Entry]
++Type=Application
++Name=Advanced DRI Configuration
++GenericName=ADRIConf
++Comment=Advanced DRI Configurator
++Icon=video-display
++Exec=adriconf
++Categories=Settings
