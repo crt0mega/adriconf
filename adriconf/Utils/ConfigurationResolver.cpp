@@ -1,9 +1,12 @@
 #include "ConfigurationResolver.h"
 #include "Parser.h"
+#include "../Logging/LoggerInterface.h"
 #include <glibmm/i18n.h>
 
+ConfigurationResolver::ConfigurationResolver(LoggerInterface *logger): logger(logger) {}
+
 std::list<Device_ptr> ConfigurationResolver::resolveOptionsForSave(
-        const Device_ptr &systemWideDevice,
+        const std::list<Device_ptr> &systemWideDevices,
         const std::list<DriverConfiguration> &driverAvailableOptions,
         const std::list<Device_ptr> &userDefinedDevices,
         std::map<Glib::ustring, GPUInfo_ptr> &availableGPUs
@@ -11,8 +14,31 @@ std::list<Device_ptr> ConfigurationResolver::resolveOptionsForSave(
     /* Create the final driverList */
     std::list<Device_ptr> mergedDevices;
 
+    Device_ptr defaultSystemWideDevice;
+
+    for (const auto &systemDeviceSearch : systemWideDevices) {
+        if (systemDeviceSearch->getDriver().empty()) {
+            defaultSystemWideDevice = systemDeviceSearch;
+            break;
+        }
+    }
+
     /* Precedence: userDefined > System Wide > Driver Default */
     for (const auto &userDefinedDevice : userDefinedDevices) {
+        /* Search if there is any device like this system-wide */
+        Device_ptr systemWideDevice = nullptr;
+        for (const auto &systemDeviceSearch : systemWideDevices) {
+            if (systemDeviceSearch->getDriver() == userDefinedDevice->getDriver()) {
+                systemWideDevice = systemDeviceSearch;
+                break;
+            }
+        }
+
+        if (systemWideDevice == nullptr) {
+            systemWideDevice = defaultSystemWideDevice;
+        }
+
+
         Device_ptr mergedDevice = std::make_shared<Device>();
 
         mergedDevice->setDriver(userDefinedDevice->getDriver());
@@ -124,7 +150,7 @@ void ConfigurationResolver::filterDriverUnsupportedOptions(
         std::map<Glib::ustring, GPUInfo_ptr> &availableGPUs
 ) {
     // Remove user-defined configurations that don't exists at driver level
-    ConfigurationResolver::removeInvalidDrivers(driverAvailableOptions, userDefinedDevices);
+    this->removeInvalidDrivers(driverAvailableOptions, userDefinedDevices);
 
     for (auto &userDefinedDevice : userDefinedDevices) {
         auto driverConfig = std::find_if(driverAvailableOptions.begin(), driverAvailableOptions.end(),
@@ -178,12 +204,12 @@ void ConfigurationResolver::filterDriverUnsupportedOptions(
                 }
 
                 if (driverRealOptions.count((*itr)->getName()) == 0) {
-                    std::cerr << Glib::ustring::compose(
+                    this->logger->warning(Glib::ustring::compose(
                             _("Driver '%1' doesn't support option '%2' on application '%3'. Option removed."),
                             correctDriverName,
                             (*itr)->getName(),
                             userDefinedApp->getName()
-                    ) << std::endl;
+                    ));
                     itr = options.erase(itr);
                 } else {
                     ++itr;
@@ -196,11 +222,20 @@ void ConfigurationResolver::filterDriverUnsupportedOptions(
 }
 
 void ConfigurationResolver::mergeOptionsForDisplay(
-        const Device_ptr &systemWideDevice,
+        const std::list<Device_ptr> &systemWideDevices,
         const std::list<DriverConfiguration> &driverAvailableOptions,
         std::list<Device_ptr> &userDefinedOptions,
         std::map<Glib::ustring, GPUInfo_ptr> &availableGPUs
 ) {
+    Device_ptr defaultSystemWideDevice;
+
+    for (const auto &systemDeviceSearch : systemWideDevices) {
+        if (systemDeviceSearch->getDriver().empty()) {
+            defaultSystemWideDevice = systemDeviceSearch;
+            break;
+        }
+    }
+
     for (const auto &driverConf : driverAvailableOptions) {
         /* Check if user-config has any config for this screen/driver */
         auto userSearchDefinedDevice = std::find_if(userDefinedOptions.begin(), userDefinedOptions.end(),
@@ -221,11 +256,25 @@ void ConfigurationResolver::mergeOptionsForDisplay(
             userDefinedDevice = *userSearchDefinedDevice;
         }
 
+        /* Search if there is any device like this system-wide */
+        Device_ptr systemWideDevice = nullptr;
+        for (const auto &systemDeviceSearch : systemWideDevices) {
+            if (systemDeviceSearch->getDriver() == userDefinedDevice->getDriver()) {
+                systemWideDevice = systemDeviceSearch;
+                break;
+            }
+        }
+
+        if (systemWideDevice == nullptr) {
+            systemWideDevice = defaultSystemWideDevice;
+        }
+
+
         std::map<Glib::ustring, Glib::ustring> realDriverOptions = driverConf.getOptionsMap();
         std::map<Glib::ustring, Glib::ustring> driverOptions;
 
         /* Check if we can add any of the system-wide apps for this config */
-        ConfigurationResolver::addMissingApplications(systemWideDevice, userDefinedDevice);
+        this->addMissingApplications(systemWideDevice, userDefinedDevice);
 
         std::list<Application_ptr> newDeviceApps = userDefinedDevice->getApplications();
 
@@ -239,7 +288,7 @@ void ConfigurationResolver::mergeOptionsForDisplay(
                 }
             }
 
-            ConfigurationResolver::addMissingDriverOptions(userDefinedApp, driverOptions);
+            this->addMissingDriverOptions(userDefinedApp, driverOptions);
         }
 
         /* Check if we have a default config */
@@ -252,7 +301,7 @@ void ConfigurationResolver::mergeOptionsForDisplay(
             Application_ptr defaultApplication = std::make_shared<Application>();
             defaultApplication->setName("Default");
 
-            ConfigurationResolver::addMissingDriverOptions(defaultApplication, realDriverOptions);
+            this->addMissingDriverOptions(defaultApplication, realDriverOptions);
 
             userDefinedDevice->addApplication(defaultApplication);
         }
@@ -319,11 +368,11 @@ void ConfigurationResolver::removeInvalidDrivers(
                                            });
 
         if (driverSupports == availableDrivers.end()) {
-            std::cerr << Glib::ustring::compose(
+            this->logger->warning(Glib::ustring::compose(
                     _("User-defined driver '%1' on screen '%2' doesn't have a driver loaded on system. Configuration removed."),
                     currentUserDefinedDriver,
                     currentUserDefinedScreen
-            ) << std::endl;
+            ));
 
             deviceIterator = userDefinedDevices.erase(deviceIterator);
         } else {
@@ -354,5 +403,53 @@ void ConfigurationResolver::addMissingApplications(const Device_ptr &sourceDevic
 
             targetDevice->addApplication(newApplication);
         }
+    }
+}
+
+void
+ConfigurationResolver::mergeConfigurationOnTopOf(std::list<Device_ptr> &source, const std::list<Device_ptr> &addOnTop) {
+    for (const auto &deviceToBeAdded : addOnTop) {
+        auto existingDevice = std::find_if(source.begin(), source.end(),
+                                           [&deviceToBeAdded](const Device_ptr &searchingDevice) {
+                                               return deviceToBeAdded->getDriver() == searchingDevice->getDriver()
+                                                      && deviceToBeAdded->getScreen() == searchingDevice->getScreen();
+                                           }
+        );
+
+        if (existingDevice == source.end()) {
+            source.emplace_back(deviceToBeAdded);
+            continue;
+        }
+
+        for (const Application_ptr &appToBeAdded : deviceToBeAdded->getApplications()) {
+            auto existingApp = std::find_if((*existingDevice)->getApplications().begin(),
+                                            (*existingDevice)->getApplications().end(),
+                                            [&appToBeAdded](const Application_ptr &app) {
+                                                return app->getExecutable() == appToBeAdded->getExecutable();
+                                            }
+            );
+
+            if (existingApp == (*existingDevice)->getApplications().end()) {
+                (*existingDevice)->addApplication(appToBeAdded);
+                continue;
+            }
+
+            for (const ApplicationOption_ptr &optionToBeAdded : appToBeAdded->getOptions()) {
+                auto existingOption = std::find_if((*existingApp)->getOptions().begin(),
+                                                   (*existingApp)->getOptions().end(),
+                                                   [&optionToBeAdded](const ApplicationOption_ptr &option) {
+                                                       return optionToBeAdded->getName() == option->getName();
+                                                   }
+                );
+
+                if (existingOption == (*existingApp)->getOptions().end()) {
+                    (*existingApp)->addOption(optionToBeAdded);
+                } else {
+                    (*existingOption)->setValue(optionToBeAdded->getValue());
+                }
+            }
+
+        }
+
     }
 }

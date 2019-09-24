@@ -3,13 +3,20 @@
 
 #include <gtkmm.h>
 #include <glibmm/i18n.h>
-#include "Device.h"
-#include "DriverConfiguration.h"
-#include "ConfigurationLoader.h"
-#include "ComboBoxColumn.h"
+#include "ValueObject/Device.h"
+#include "ValueObject/DriverConfiguration.h"
+#include "Utils/ConfigurationLoaderInterface.h"
+#include "ValueObject/ComboBoxColumn.h"
+#include "Utils/ConfigurationResolverInterface.h"
+#include "Utils/WriterInterface.h"
 
 class GUI {
 private:
+    LoggerInterface *logger;
+    ConfigurationLoaderInterface *configurationLoader;
+    ConfigurationResolverInterface *resolver;
+    WriterInterface *writer;
+
     /* GUI-Related */
     Gtk::Window *pWindow;
     Gtk::AboutDialog aboutDialog;
@@ -18,13 +25,13 @@ private:
     ComboBoxColumn comboColumns;
 
     /* State-related */
-    Device_ptr systemWideConfiguration;
+    std::list<Device_ptr> systemWideConfiguration;
     std::list<DriverConfiguration> driverConfiguration;
     std::list<Device_ptr> userDefinedConfiguration;
     std::map<Glib::ustring, GPUInfo_ptr> availableGPUs;
     bool isPrimeSetup;
     Application_ptr currentApp;
-    DriverConfiguration * currentDriver;
+    DriverConfiguration *currentDriver;
     std::map<Glib::ustring, Gtk::ComboBox *> currentComboBoxes;
     std::map<Glib::ustring, Gtk::SpinButton *> currentSpinButtons;
 
@@ -41,7 +48,7 @@ private:
     void setupAboutDialog();
 
 public:
-    GUI();
+    GUI(LoggerInterface *logger, ConfigurationLoaderInterface *configurationLoader, ConfigurationResolverInterface *resolver, WriterInterface *writer);
 
     virtual ~GUI();
 
@@ -52,7 +59,7 @@ public:
 
     void onSavePressed();
 
-    void onApplicationSelected(Glib::ustring, Glib::ustring);
+    void onApplicationSelected(const Glib::ustring &, const Glib::ustring &);
 
     void onCheckboxChanged(Glib::ustring);
 

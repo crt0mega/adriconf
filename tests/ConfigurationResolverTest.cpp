@@ -1,5 +1,7 @@
-#include "../ConfigurationResolver.h"
+#include "../adriconf/Utils/ConfigurationResolver.h"
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+#include "Logging/LoggerMock.h"
 
 class UpdatePrimeApplicationsTest : public ::testing::Test {
 public:
@@ -7,8 +9,10 @@ public:
     std::list<Device_ptr> devices;
     Application_ptr app;
     ApplicationOption_ptr opt;
+    LoggerMock logger;
+    ConfigurationResolver resolver;
 
-    UpdatePrimeApplicationsTest() {
+    UpdatePrimeApplicationsTest() : resolver(&logger) {
         GPUInfo_ptr gpu = std::make_shared<GPUInfo>();
         gpu->setDriverName("i965");
         gpu->setPciId("pci-testing-10");
@@ -19,7 +23,6 @@ public:
         opt = std::make_shared<ApplicationOption>();
         opt->setName("device_id");
 
-
         app->addOption(opt);
         device->addApplication(app);
         devices.emplace_back(device);
@@ -27,17 +30,17 @@ public:
 };
 
 TEST_F(UpdatePrimeApplicationsTest, InvalidGPU) {
-    opt->setValue("pci-testing-invalid");
+    this->opt->setValue("pci-testing-invalid");
 
-    ConfigurationResolver::updatePrimeApplications(devices, gpus);
+    this->resolver.updatePrimeApplications(devices, gpus);
 
     EXPECT_FALSE(app->getIsUsingPrime());
 }
 
 TEST_F(UpdatePrimeApplicationsTest, CorrectGPU) {
-    opt->setValue("pci-testing-10");
+    this->opt->setValue("pci-testing-10");
 
-    ConfigurationResolver::updatePrimeApplications(devices, gpus);
+    this->resolver.updatePrimeApplications(devices, gpus);
 
     EXPECT_TRUE(app->getIsUsingPrime());
     EXPECT_EQ("pci-testing-10", app->getDevicePCIId());
@@ -48,8 +51,10 @@ TEST_F(UpdatePrimeApplicationsTest, CorrectGPU) {
 class AddMissingDriverOptionsTest : public ::testing::Test {
 public:
     Application_ptr app;
+    LoggerMock logger;
+    ConfigurationResolver resolver;
 
-    AddMissingDriverOptionsTest() {
+    AddMissingDriverOptionsTest() : resolver(&logger) {
         app = std::make_shared<Application>();
 
     }
@@ -61,7 +66,7 @@ TEST_F(AddMissingDriverOptionsTest, missingOptionCount) {
     driverOptions["bo_reuse"] = "1";
     driverOptions["mesa_no_errors"] = "0";
 
-    ConfigurationResolver::addMissingDriverOptions(app, driverOptions);
+    this->resolver.addMissingDriverOptions(app, driverOptions);
 
     EXPECT_EQ(2, app->getOptions().size());
 }
@@ -72,14 +77,13 @@ TEST_F(AddMissingDriverOptionsTest, unchangedOptionValue) {
     appOpt->setName("bo_reuse");
     appOpt->setValue("0");
 
-    app->addOption(appOpt);
-
+    this->app->addOption(appOpt);
 
     std::map<Glib::ustring, Glib::ustring> driverOptions;
     driverOptions["bo_reuse"] = "1";
     driverOptions["mesa_no_errors"] = "0";
 
-    ConfigurationResolver::addMissingDriverOptions(app, driverOptions);
+    this->resolver.addMissingDriverOptions(app, driverOptions);
 
     std::map<Glib::ustring, Glib::ustring> appOptions = app->getOptionsAsMap();
 
@@ -91,8 +95,10 @@ TEST_F(AddMissingDriverOptionsTest, unchangedOptionValue) {
 class RemoveInvalidDriversTest : public ::testing::Test {
 public:
     std::list<DriverConfiguration> availableDrivers;
+    LoggerMock logger;
+    ConfigurationResolver resolver;
 
-    RemoveInvalidDriversTest() {
+    RemoveInvalidDriversTest() : resolver(&logger) {
         DriverConfiguration conf1, conf2;
         conf1.setDriverName("i965");
         conf1.setScreen(0);
@@ -106,6 +112,11 @@ public:
 };
 
 TEST_F(RemoveInvalidDriversTest, incorrectScreenNumber) {
+    Glib::ustring warnMsg(
+            "User-defined driver 'r600g' on screen '0' doesn't have a driver loaded on system. Configuration removed.");
+    EXPECT_CALL(this->logger, warning(warnMsg))
+            .Times(1);
+
     std::list<Device_ptr> userDefinedDevices;
     Device_ptr d = std::make_shared<Device>();
     d->setScreen(0);
@@ -113,12 +124,16 @@ TEST_F(RemoveInvalidDriversTest, incorrectScreenNumber) {
 
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::removeInvalidDrivers(availableDrivers, userDefinedDevices);
+    this->resolver.removeInvalidDrivers(availableDrivers, userDefinedDevices);
 
     EXPECT_EQ(0, userDefinedDevices.size());
 }
 
 TEST_F(RemoveInvalidDriversTest, incorrectDriverName) {
+    Glib::ustring warnMsg(
+            "User-defined driver 'i965' on screen '1' doesn't have a driver loaded on system. Configuration removed.");
+    EXPECT_CALL(this->logger, warning(warnMsg)).Times(1);
+
     std::list<Device_ptr> userDefinedDevices;
     Device_ptr d = std::make_shared<Device>();
     d->setScreen(1);
@@ -126,7 +141,7 @@ TEST_F(RemoveInvalidDriversTest, incorrectDriverName) {
 
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::removeInvalidDrivers(availableDrivers, userDefinedDevices);
+    this->resolver.removeInvalidDrivers(availableDrivers, userDefinedDevices);
 
     EXPECT_EQ(0, userDefinedDevices.size());
 }
@@ -144,7 +159,7 @@ TEST_F(RemoveInvalidDriversTest, correctScreenAndDriver) {
     userDefinedDevices.emplace_back(d);
     userDefinedDevices.emplace_back(d2);
 
-    ConfigurationResolver::removeInvalidDrivers(availableDrivers, userDefinedDevices);
+    this->resolver.removeInvalidDrivers(availableDrivers, userDefinedDevices);
 
     EXPECT_EQ(2, userDefinedDevices.size());
 }
@@ -154,8 +169,10 @@ class FilterDriverUnsupportedOptionsTest : public ::testing::Test {
 public:
     std::list<DriverConfiguration> availableDrivers;
     std::map<Glib::ustring, GPUInfo_ptr> availableGPUs;
+    LoggerMock logger;
+    ConfigurationResolver resolver;
 
-    FilterDriverUnsupportedOptionsTest() {
+    FilterDriverUnsupportedOptionsTest(): resolver(&logger) {
         DriverConfiguration conf1;
         conf1.setDriverName("i965");
         conf1.setScreen(0);
@@ -209,6 +226,10 @@ public:
 };
 
 TEST_F(FilterDriverUnsupportedOptionsTest, invalidOption) {
+    Glib::ustring warnMessage(
+            "Driver 'i965' doesn't support option 'invalid_name' on application 'App Name'. Option removed.");
+    EXPECT_CALL(this->logger, warning(warnMessage)).Times(1);
+
     std::list<Device_ptr> userDefinedDevices;
     Device_ptr d = std::make_shared<Device>();
     d->setDriver("i965");
@@ -223,7 +244,7 @@ TEST_F(FilterDriverUnsupportedOptionsTest, invalidOption) {
     d->addApplication(app);
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
+    this->resolver.filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
 
     EXPECT_EQ(0, app->getOptions().size());
 }
@@ -243,12 +264,16 @@ TEST_F(FilterDriverUnsupportedOptionsTest, validOption) {
     d->addApplication(app);
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
+    this->resolver.filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
 
     EXPECT_EQ(1, app->getOptions().size());
 }
 
 TEST_F(FilterDriverUnsupportedOptionsTest, invalidOptionPrime) {
+    Glib::ustring warnMessage(
+            "Driver 'r600g' doesn't support option 'invalid_name' on application 'App Name'. Option removed.");
+    EXPECT_CALL(this->logger, warning(warnMessage)).Times(1);
+
     std::list<Device_ptr> userDefinedDevices;
     Device_ptr d = std::make_shared<Device>();
     d->setDriver("i965");
@@ -265,11 +290,10 @@ TEST_F(FilterDriverUnsupportedOptionsTest, invalidOptionPrime) {
     optDevice->setValue("pci-radeon");
     app->addOption(optDevice);
 
-
     d->addApplication(app);
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
+    this->resolver.filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
 
     EXPECT_EQ(1, app->getOptions().size());
 }
@@ -295,7 +319,7 @@ TEST_F(FilterDriverUnsupportedOptionsTest, validOptionPrime) {
     d->addApplication(app);
     userDefinedDevices.emplace_back(d);
 
-    ConfigurationResolver::filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
+    this->resolver.filterDriverUnsupportedOptions(availableDrivers, userDefinedDevices, availableGPUs);
 
     EXPECT_EQ(2, app->getOptions().size());
 }
@@ -304,8 +328,10 @@ TEST_F(FilterDriverUnsupportedOptionsTest, validOptionPrime) {
 class AddMissingApplicationsTest : public ::testing::Test {
 public:
     Device_ptr sourceDevice;
+    LoggerMock logger;
+    ConfigurationResolver resolver;
 
-    AddMissingApplicationsTest() {
+    AddMissingApplicationsTest(): resolver(&logger) {
         sourceDevice = std::make_shared<Device>();
 
         Application_ptr app1 = std::make_shared<Application>();
@@ -360,9 +386,9 @@ TEST_F(AddMissingApplicationsTest, missingApplication) {
     option2->setValue("value_2");
     app1->addOption(option2);
 
-    sourceDevice->addApplication(app1);
+    this->sourceDevice->addApplication(app1);
 
-    ConfigurationResolver::addMissingApplications(sourceDevice, targetDevice);
+    this->resolver.addMissingApplications(sourceDevice, targetDevice);
 
     EXPECT_EQ(3, targetDevice->getApplications().size());
 }
@@ -379,9 +405,9 @@ TEST_F(AddMissingApplicationsTest, existingApplication) {
     option1->setValue("value_teste");
     app1->addOption(option1);
 
-    sourceDevice->addApplication(app1);
+    this->sourceDevice->addApplication(app1);
 
-    ConfigurationResolver::addMissingApplications(sourceDevice, targetDevice);
+    this->resolver.addMissingApplications(sourceDevice, targetDevice);
 
     EXPECT_EQ(2, targetDevice->getApplications().size());
 }

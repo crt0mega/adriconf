@@ -3,27 +3,9 @@ project(adriconf)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(SOURCE_FILES Device.cpp Device.h
-        DriverOption.cpp DriverOption.h
-        Section.cpp Section.h
-        Parser.cpp Parser.h
-        Application.cpp Application.h
-        ConfigurationResolver.cpp ConfigurationResolver.h
-        DRIQuery.cpp DRIQuery.h
-        HelpersWayland.cpp HelpersWayland.h
-        DriverConfiguration.cpp DriverConfiguration.h
-        Writer.cpp Writer.h GUI.cpp GUI.h ConfigurationLoader.cpp ConfigurationLoader.h ApplicationOption.cpp ApplicationOption.h
-        resources.c GPUInfo.cpp GPUInfo.h PCIDatabaseQuery.cpp PCIDatabaseQuery.h ComboBoxColumn.h DriverOptionType.h)
-
-set(SOURCE_TESTS tests/ConfigurationResolverTest.cpp
-                 tests/DeviceTest.cpp
-                 tests/ApplicationTest.cpp
-                 tests/ApplicationOptionTest.cpp
-                 tests/DriverConfigurationTest.cpp
-                 tests/DriverOptionTest.cpp
-                 tests/SectionTest.cpp
-                 tests/GPUInfoTest.cpp
-)
+option(ENABLE_XWAYLAND "Enable XWayland support" ON)
+option(ENABLE_UNIT_TESTS "Enables building Unit tests" ON)
+set(TOP_CMAKE_WAS_CALLED TRUE)
 
 find_package(PkgConfig REQUIRED)
 set(OpenGL_GL_PREFERENCE "GLVND")
@@ -31,100 +13,99 @@ find_package(OpenGL REQUIRED)
 
 # GTKMM
 pkg_check_modules(GTKMM REQUIRED gtkmm-3.0)
-include_directories(${GTKMM_INCLUDE_DIRS})
-link_directories(${GTKMM_LIBRARY_DIRS})
 
 # BOOST
-find_package(Boost 1.60 REQUIRED COMPONENTS locale)
-include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
+find_package(Boost 1.60 REQUIRED COMPONENTS locale filesystem system)
 
 # LIBXML
 pkg_check_modules(LibXML++ libxml++-3.0)
-if(NOT LibXML++_FOUND)
+if (NOT LibXML++_FOUND)
     pkg_check_modules(LibXML++2 REQUIRED libxml++-2.6)
     set(LibXML++_INCLUDE_DIRS ${LibXML++2_INCLUDE_DIRS})
-    set(LibXML++_LIBRARY_DIRS ${LibXML++2_LIBRARY_DIRS})
     set(LibXML++_LIBRARIES ${LibXML++2_LIBRARIES})
-endif()
-include_directories(${LibXML++_INCLUDE_DIRS})
-link_directories(${LibXML++_LIBRARY_DIRS})
+endif ()
 
 # X11
 pkg_check_modules(X11 REQUIRED x11)
-include_directories(${X11_INCLUDE_DIRS})
-link_directories(${X11_LIBRARY_DIRS})
 
 # LIBDRM
 pkg_check_modules(DRM REQUIRED libdrm)
-include_directories(${DRM_INCLUDE_DIRS})
-link_directories(${DRM_LIBRARY_DIRS})
 
 # LIBPCI
 pkg_check_modules(PCILIB REQUIRED libpci)
-include_directories(${PCILIB_INCLUDE_DIRS})
-link_directories(${PCILIB_LIBRARY_DIRS})
 
 # INTL
-find_package (Intl REQUIRED)
+find_package(Intl REQUIRED)
 find_package(Gettext REQUIRED)
 include_directories(${INTL_INCLUDE_DIRS})
 link_directories(${INTL_LIBRARY_DIRS})
 
 #EGL
-#Use these libs if running on Wayland
-if(ENABLE_XWAYLAND)
-    message(STATUS "XDG_SESSION_TYPE = " $ENV{XDG_SESSION_TYPE})
+if (ENABLE_XWAYLAND)
     pkg_check_modules(EGL REQUIRED egl)
-    include_directories(${EGL_INCLUDE_DIRS})
-    link_directories(${EGL_LIBRARY_DIRS})
-endif()
+endif ()
 
 #INTL INSTALL TRANSLATIONS
-GETTEXT_CREATE_TRANSLATIONS(po/adriconf.pot ALL po/en.po po/hr.po po/pt_BR.po)
+GETTEXT_CREATE_TRANSLATIONS(po/adriconf.pot ALL po/en.po po/hr.po po/lv.po po/pt_BR.po po/zh_CN.po)
 
-# Define the executable itself
-add_executable(adriconf main.cpp ${SOURCE_FILES})
+set(SHARED_SOURCE_FILES
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Device.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Device.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/DriverOption.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/DriverOption.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Section.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Section.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/DriverConfiguration.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/DriverConfiguration.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/GPUInfo.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/GPUInfo.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Application.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/Application.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/ApplicationOption.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/ApplicationOption.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/ComboBoxColumn.h
+        ${CMAKE_SOURCE_DIR}/adriconf/ValueObject/DriverOptionType.h
 
-target_link_libraries(adriconf ${GTKMM_LIBRARIES})
-target_link_libraries(adriconf ${Boost_LOCALE_LIBRARIES})
-target_link_libraries(adriconf ${LibXML++_LIBRARIES})
-target_link_libraries(adriconf ${X11_LIBRARIES})
-target_link_libraries(adriconf ${OPENGL_gl_LIBRARY})
-if(OpenGL_GLX_FOUND)
-    target_link_libraries(adriconf ${OPENGL_glx_LIBRARY})
+        ${CMAKE_SOURCE_DIR}/adriconf/Logging/LoggerInterface.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Logging/LoggerLevel.h
+
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ParserInterface.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationResolverInterface.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/DRIQuery.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/DRIQuery.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/HelpersWayland.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/HelpersWayland.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/WriterInterface.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationLoaderInterface.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/PCIDatabaseQuery.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/PCIDatabaseQuery.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/PCIDatabaseQueryInterface.h
+
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/Parser.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/Parser.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationResolver.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationResolver.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/Writer.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/Writer.h
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationLoader.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/Utils/ConfigurationLoader.h
+
+        ${CMAKE_SOURCE_DIR}/adriconf/GUI.cpp
+        ${CMAKE_SOURCE_DIR}/adriconf/GUI.h
+        )
+
+# GTest and GMock setup
+if (ENABLE_UNIT_TESTS)
+    configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
+            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download" )
+    execute_process(COMMAND "${CMAKE_COMMAND}" --build .  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download" )
+
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src" "${CMAKE_BINARY_DIR}/googletest-build")
+    add_subdirectory(tests)
 endif()
-target_link_libraries(adriconf ${DRM_LIBRARIES})
-target_link_libraries(adriconf ${PCILIB_LIBRARIES})
-if (ENABLE_XWAYLAND)
-    target_link_libraries(adriconf ${EGL_LIBRARIES})
-    target_compile_definitions(adriconf PRIVATE ENABLE_XWAYLAND)
-endif()
 
-add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/resources.c
-    COMMAND glib-compile-resources adriconf.gresource.xml --target=resources.c --generate-source
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    DEPENDS  ${CMAKE_SOURCE_DIR}/DriConf.glade
-)
-set_source_files_properties(${CMAKE_SOURCE_DIR}/resources.c PROPERTIES
-    GENERATED TRUE
-)
+add_subdirectory(adriconf)
 
-# GTEST
-enable_testing()
-find_package(GTest REQUIRED)
-
-add_executable(runUnitTests EXCLUDE_FROM_ALL ${SOURCE_FILES} ${SOURCE_TESTS})
-target_link_libraries(runUnitTests GTest::GTest GTest::Main)
-target_link_libraries(runUnitTests ${GTKMM_LIBRARIES})
-target_link_libraries(runUnitTests ${Boost_LOCALE_LIBRARIES})
-target_link_libraries(runUnitTests ${LibXML++_LIBRARIES})
-target_link_libraries(runUnitTests ${X11_LIBRARIES})
-target_link_libraries(runUnitTests ${OPENGL_gl_LIBRARY})
-if(OpenGL_GLX_FOUND)
-    target_link_libraries(runUnitTests ${OPENGL_glx_LIBRARY})
-endif()
-target_link_libraries(runUnitTests ${DRM_LIBRARIES})
-target_link_libraries(runUnitTests ${PCILIB_LIBRARIES})
-
-install(TARGETS adriconf DESTINATION bin)

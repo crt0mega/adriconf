@@ -1,10 +1,12 @@
 #ifndef DRICONF3_DRIQUERY_H
 #define DRICONF3_DRIQUERY_H
 
-#include "DriverConfiguration.h"
+#include "../ValueObject/DriverConfiguration.h"
 #include "Parser.h"
-#include "GPUInfo.h"
+#include "../ValueObject/GPUInfo.h"
 #include "HelpersWayland.h"
+#include "../Logging/LoggerInterface.h"
+#include "PCIDatabaseQueryInterface.h"
 
 #include <GL/glx.h>
 #include <GL/glxext.h>
@@ -21,6 +23,11 @@ typedef const char *glXQueryExtensionsString_t(Display *dpy, int screen);
 
 class DRIQuery {
 private:
+    LoggerInterface *logger;
+    ParserInterface *parser;
+    PCIDatabaseQueryInterface *pciQuery;
+    bool isWaylandSession;
+
     glXGetScreenDriver_t *getScreenDriver;
     glXGetDriverConfig_t *getDriverConfig;
     glXQueryExtensionsString_t *getGlxExtensionsString;
@@ -28,7 +35,7 @@ private:
     const char *queryDriverConfig(const char *dn);
 
 public:
-    DRIQuery();
+    DRIQuery(LoggerInterface *logger, ParserInterface *parser, PCIDatabaseQueryInterface *pciQuery, bool isWaylandSession);
     bool isSystemSupported();
     bool canHandle();
 
